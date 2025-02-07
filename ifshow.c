@@ -7,6 +7,26 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+int calculer_prefixe(struct sockaddr *netmask) {
+    if (netmask == NULL) return 0; // Si aucun masque, renvoyer 0
+
+    int prefix = 0;
+    unsigned char *addr;
+    
+    if (netmask->sa_family == AF_INET) { // IPv4
+        addr = (unsigned char *)&((struct sockaddr_in *)netmask)->sin_addr;
+        for (int i = 0; i < 4; i++) {
+            prefix += __builtin_popcount(addr[i]); // Compte les bits à 1
+        }
+    } else if (netmask->sa_family == AF_INET6) { // IPv6
+        addr = (unsigned char *)&((struct sockaddr_in6 *)netmask)->sin6_addr;
+        for (int i = 0; i < 16; i++) {
+            prefix += __builtin_popcount(addr[i]);
+        }
+    }
+    return prefix;
+}
+
 void afficher_interfaces() {
     struct ifaddrs *ifaddr, *ifa;
     char addr[INET6_ADDRSTRLEN];
@@ -23,7 +43,7 @@ void afficher_interfaces() {
 
         if (family == AF_INET || family == AF_INET6) {
             void *addr_ptr;
-            int prefix = (family == AF_INET) ? 32 : 64; // Hypothèse des préfixes
+            int prefix = calculer_prefixe(ifa->ifa_netmask); // Récupération correcte du préfixe
 
             if (family == AF_INET) {
                 addr_ptr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
@@ -55,7 +75,7 @@ void afficher_interface_unique(const char *ifname) {
         int family = ifa->ifa_addr->sa_family;
         if (family == AF_INET || family == AF_INET6) {
             void *addr_ptr;
-            int prefix = (family == AF_INET) ? 32 : 64;
+            int prefix = calculer_prefixe(ifa->ifa_netmask);
 
             if (family == AF_INET) {
                 addr_ptr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
